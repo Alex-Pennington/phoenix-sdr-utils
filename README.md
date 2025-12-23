@@ -156,8 +156,12 @@ wwv_gps_verify -g COM3 -w localhost:4536
 # I/Q playback
 gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play.exe
 
-# AM receiver (network client)
-gcc -O2 -I include -I path/to/phoenix-discovery/include src/simple_am_receiver.c -L path/to/phoenix-discovery/lib -lpn_discovery -lws2_32 -lwinmm -o simple_am_receiver.exe
+# AM receiver (network client - requires phoenix-dsp and phoenix-discovery)
+gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \
+    src/simple_am_receiver.c \
+    -L ../phoenix-dsp/lib -L ../phoenix-discovery/build \
+    -lpn_dsp -lpn_discovery -liphlpapi -lws2_32 -lwinmm -lm \
+    -o simple_am_receiver.exe
 
 # GPS tools
 gcc -O2 -I include src/gps_time.c src/gps_serial.c -o gps_time.exe
@@ -170,7 +174,11 @@ gcc -O2 -I include src/wwv_gps_verify.c src/gps_serial.c -lws2_32 -o wwv_gps_ver
 
 ```bash
 gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play
-gcc -O2 -I include -I ../phoenix-discovery/include src/simple_am_receiver.c -L ../phoenix-discovery/lib -lpn_discovery -lpthread -o simple_am_receiver
+gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \
+    src/simple_am_receiver.c \
+    -L ../phoenix-dsp/lib -L ../phoenix-discovery/build \
+    -lpn_dsp -lpn_discovery -lpthread -lm \
+    -o simple_am_receiver
 ```
 
 ---
@@ -178,7 +186,8 @@ gcc -O2 -I include -I ../phoenix-discovery/include src/simple_am_receiver.c -L .
 ## Dependencies
 
 - Standard C library
-- Windows: ws2_32 (Winsock), winmm (audio output)
+- Windows: ws2_32 (Winsock), winmm (audio output), iphlpapi (network adapters)
+- [phoenix-dsp](../phoenix-dsp) - DSP algorithms library
 - [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery library
 
 ---
@@ -190,6 +199,7 @@ gcc -O2 -I include -I ../phoenix-discovery/include src/simple_am_receiver.c -L .
 | [mars-suite](https://github.com/Alex-Pennington/mars-suite) | Phoenix Nest MARS Suite index |
 | [phoenix-sdr-core](https://github.com/Alex-Pennington/phoenix-sdr-core) | SDR hardware interface |
 | [phoenix-sdr-net](https://github.com/Alex-Pennington/phoenix-sdr-net) | I/Q streaming server |
+| [phoenix-dsp](../phoenix-dsp) | DSP algorithms library |
 | [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) | Service discovery |
 | [phoenix-waterfall](https://github.com/Alex-Pennington/phoenix-waterfall) | Waterfall display |
 | [phoenix-wwv](https://github.com/Alex-Pennington/phoenix-wwv) | WWV detection library |

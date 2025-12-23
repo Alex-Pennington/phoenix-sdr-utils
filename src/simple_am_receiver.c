@@ -25,6 +25,7 @@
 #include <signal.h>
 
 #include "pn_discovery.h"
+#include "pn_dsp.h"
 #include "version.h"
 
 #ifdef _WIN32
@@ -106,106 +107,9 @@ typedef struct {
 #pragma pack(pop)
 
 /*============================================================================
- * Lowpass Filter (simple 2nd order Butterworth, 2.5 kHz @ 2 MHz)
+ * DSP Components (phoenix-dsp library)
  *============================================================================*/
-
-typedef struct {
-    float x1, x2;   /* Input history */
-    float y1, y2;   /* Output history */
-    float b0, b1, b2, a1, a2;  /* Coefficients */
-} lowpass_t;
-
-static void lowpass_init(lowpass_t *lp, float cutoff_hz, float sample_rate) {
-    /* 2nd order Butterworth lowpass */
-    float w0 = 2.0f * 3.14159265f * cutoff_hz / sample_rate;
-    float alpha = sinf(w0) / (2.0f * 0.7071f);  /* Q = 0.7071 for Butterworth */
-    float cos_w0 = cosf(w0);
-
-    float a0 = 1.0f + alpha;
-    lp->b0 = (1.0f - cos_w0) / 2.0f / a0;
-    lp->b1 = (1.0f - cos_w0) / a0;
-    lp->b2 = (1.0f - cos_w0) / 2.0f / a0;
-    lp->a1 = -2.0f * cos_w0 / a0;
-    lp->a2 = (1.0f - alpha) / a0;
-
-    lp->x1 = lp->x2 = 0.0f;
-    lp->y1 = lp->y2 = 0.0f;
-}
-
-static float lowpass_process(lowpass_t *lp, float x) {
-    float y = lp->b0 * x + lp->b1 * lp->x1 + lp->b2 * lp->x2
-            - lp->a1 * lp->y1 - lp->a2 * lp->y2;
-    lp->x2 = lp->x1;
-    lp->x1 = x;
-    lp->y2 = lp->y1;
-    lp->y1 = y;
-    return y;
-}
-
-/*============================================================================
- * DC Removal (highpass IIR: y[n] = x[n] - x[n-1] + 0.995*y[n-1])
- *============================================================================*/
-
-typedef struct {
-    float x_prev;
-    float y_prev;
-} dc_block_t;
-
-static void dc_block_init(dc_block_t *dc) {
-    dc->x_prev = 0.0f;
-    dc->y_prev = 0.0f;
-}
-
-static float dc_block_process(dc_block_t *dc, float x) {
-    float y = x - dc->x_prev + 0.99f * dc->y_prev;  /* 0.99 for voice (was 0.995 for pulse detection) */
-    dc->x_prev = x;
-    dc->y_prev = y;
-    return y;
-}
-
-/*============================================================================
- * Audio AGC (Automatic Gain Control)
- *============================================================================*/
-
-typedef struct {
-    float level;        /* Running average of signal level */
-    float target;       /* Target output level */
-    float attack;       /* Attack time constant (fast) */
-    float decay;        /* Decay time constant (slow) */
-    int warmup;         /* Warmup counter */
-} audio_agc_t;
-
-static void audio_agc_init(audio_agc_t *agc, float target) {
-    agc->level = 0.0001f;
-    agc->target = target;
-    agc->attack = 0.01f;   /* Fast attack for loud signals */
-    agc->decay = 0.0001f;  /* Slow decay for quiet signals */
-    agc->warmup = 0;
-}
-
-static float audio_agc_process(audio_agc_t *agc, float x) {
-    float mag = fabsf(x);
-
-    /* Track signal level with asymmetric time constants */
-    if (mag > agc->level) {
-        agc->level += agc->attack * (mag - agc->level);  /* Fast attack */
-    } else {
-        agc->level += agc->decay * (mag - agc->level);   /* Slow decay */
-    }
-
-    /* Prevent division by zero */
-    if (agc->level < 0.0001f) agc->level = 0.0001f;
-
-    /* Calculate gain to reach target level */
-    float gain = agc->target / agc->level;
-
-    /* Limit gain to prevent over-amplification during silence */
-    if (gain > 100.0f) gain = 100.0f;
-    if (gain < 0.1f) gain = 0.1f;
-
-    /* Apply gain */
-    return x * gain;
-}
+/* Filters and AGC now provided by libpn_dsp */
 
 /*============================================================================
  * Audio Output (Windows waveOut)
@@ -300,10 +204,10 @@ static char g_server_host[256] = "localhost";
 static int g_server_port = IQ_DEFAULT_PORT;
 
 /* DSP state */
-static lowpass_t g_lowpass_i;   /* Lowpass for I channel */
-static lowpass_t g_lowpass_q;   /* Lowpass for Q channel */
-static dc_block_t g_dc_block;
-static audio_agc_t g_audio_agc;
+static pn_lowpass_t g_lowpass_i;   /* Lowpass for I channel */
+static pn_lowpass_t g_lowpass_q;   /* Lowpass for Q channel */
+static pn_dc_block_t g_dc_block;
+static pn_audio_agc_t g_audio_agc;
 static int g_decim_counter = 0;
 
 /* Audio output buffer */
@@ -333,17 +237,17 @@ static void process_iq_samples(const int16_t *samples, unsigned int num_samples)
         /* Step 2: Lowpass filter I and Q separately
          * This isolates the signal at DC (our tuned frequency)
          * and rejects off-center stations within the bandwidth */
-        float I_filt = lowpass_process(&g_lowpass_i, I);
-        float Q_filt = lowpass_process(&g_lowpass_q, Q);
+        float I_filt = pn_lowpass_process(&g_lowpass_i, I);
+        float Q_filt = pn_lowpass_process(&g_lowpass_q, Q);
 
         /* Step 3: Envelope detection on filtered signal */
         float magnitude = sqrtf(I_filt * I_filt + Q_filt * Q_filt);
 
         /* Step 4: DC removal (BEFORE decimation - keeps modulation clean) */
-        float audio = dc_block_process(&g_dc_block, magnitude);
+        float audio = pn_dc_block_process(&g_dc_block, magnitude);
 
         /* Step 5: Audio AGC (automatic gain control for consistent volume) */
-        audio = audio_agc_process(&g_audio_agc, audio);
+        audio = pn_audio_agc_process(&g_audio_agc, audio);
 
         /* Step 6: Decimation (keep every 42nd sample) */
         g_decim_counter++;
@@ -579,10 +483,10 @@ int main(int argc, char *argv[]) {
     LOG("Volume: %.1f\n\n", g_volume);
 
     /* Initialize DSP - lowpass I and Q at 3 kHz (gives 6 kHz RF bandwidth) */
-    lowpass_init(&g_lowpass_i, IQ_FILTER_CUTOFF, SDR_SAMPLE_RATE);
-    lowpass_init(&g_lowpass_q, IQ_FILTER_CUTOFF, SDR_SAMPLE_RATE);
-    dc_block_init(&g_dc_block);
-    audio_agc_init(&g_audio_agc, 5000.0f);
+    pn_lowpass_init(&g_lowpass_i, IQ_FILTER_CUTOFF, SDR_SAMPLE_RATE);
+    pn_lowpass_init(&g_lowpass_q, IQ_FILTER_CUTOFF, SDR_SAMPLE_RATE);
+    pn_dc_block_init(&g_dc_block, 0.99f);
+    pn_audio_agc_init(&g_audio_agc, 5000.0f);
 
     /* Initialize audio if enabled */
     if (g_audio_enabled) {

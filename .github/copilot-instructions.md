@@ -71,8 +71,12 @@ Controller → sdr_server:4535 (control: SET_FREQ, SET_GAIN, START, STOP)
 # I/Q playback
 gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play.exe
 
-# AM receiver (network client - requires phoenix-discovery)
-gcc -O2 -I include -I ../phoenix-discovery/include src/simple_am_receiver.c -L ../phoenix-discovery/lib -lpn_discovery -lws2_32 -lwinmm -o simple_am_receiver.exe
+# AM receiver (network client - requires phoenix-dsp and phoenix-discovery)
+gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \
+    src/simple_am_receiver.c \
+    -L ../phoenix-dsp/lib -L ../phoenix-discovery/build \
+    -lpn_dsp -lpn_discovery -liphlpapi -lws2_32 -lwinmm -lm \
+    -o simple_am_receiver.exe
 
 # GPS tools
 gcc -O2 -I include src/gps_time.c src/gps_serial.c -o gps_time.exe
@@ -161,6 +165,8 @@ gps_serial_close(gps);
 
 | Library | Purpose |
 |---------|---------|
+| phoenix-dsp | DSP algorithms (filters, AGC) |
+| phoenix-discovery | Service discovery |
 | Winsock2 | Windows networking |
 | Windows serial API | COM port access |
-
+| iphlpapi | Network adapter enumeration |
