@@ -11,18 +11,57 @@
 
 ## Overview
 
-**Phoenix SDR Utils** contains standalone utility programs for I/Q playback, signal analysis, GPS timing, and debugging.
+**Phoenix SDR Utils** contains standalone utility programs for I/Q playback, network-based signal analysis, and GPS timing.
+
+**Architecture:** Tools connect to sdr_server (phoenix-sdr-net) for I/Q data streaming. Service discovery via phoenix-discovery.
+
+**Note:** WWV-specific analysis tools have been moved to [phoenix-wwv](https://github.com/Alex-Pennington/phoenix-wwv).
 
 ### Tool Categories
 
 | Category | Tools |
 |----------|-------|
 | I/Q Recording | `iqr_play`, `iq_recorder`, `iqr_meta` |
-| Signal Analysis | `simple_am_receiver`, `wwv_analyze`, `env_dump` |
-| WWV Debugging | `wwv_debug`, `wwv_tick_detect`, `wwv_scan`, `wwv_sync` |
+| Signal Analysis | `simple_am_receiver` (network I/Q client) |
 | GPS/Timing | `gps_time`, `gps_serial`, `wwv_gps_verify` |
-| Telemetry | `telem_logger`, `serial_dump` |
-| Python Tools | `wwv_analyze.py`, `wwv_plot.py` |
+
+---
+
+## Network Architecture
+
+### I/Q Streaming (phoenix-sdr-net)
+
+```
+Controller → sdr_server:4535 (control: SET_FREQ, SET_GAIN, START, STOP)
+                    ↓
+            sdr_server:4536 (I/Q data: PHXI header + IQDQ frames)
+                    ↓
+          simple_am_receiver (DSP + audio output)
+```
+
+**Protocol:** PHXI/IQDQ binary streaming
+- **PHXI header** (32 bytes): sample rate, format, frequency, gain
+- **IQDQ frames** (16 byte header + samples): sequence, sample count, flags + S16 I/Q pairs
+- **META updates**: Parameter changes during streaming
+
+**Discovery:** phoenix-discovery UDP broadcast (port 5400)
+- `pn_discovery_init()` + `pn_listen()` to find sdr_server
+- Auto-discovers IP and ports
+
+### simple_am_receiver Architecture
+
+**Input:** Network I/Q stream from sdr_server:4536
+**Output:** Audio (speakers) or PCM (stdout)
+
+**DSP Pipeline:**
+1. Lowpass filter I and Q (3 kHz cutoff, Butterworth 2nd order)
+2. Envelope detection (magnitude = sqrt(I² + Q²))
+3. DC removal (highpass IIR)
+4. Audio AGC (asymmetric attack/decay)
+5. Decimation (2 MHz → 48 kHz)
+6. Audio output (Windows waveOut)
+
+**No hardware control** - frequency/gain managed by controller via port 4535
 
 ---
 
@@ -32,14 +71,14 @@
 # I/Q playback
 gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play.exe
 
-# AM receiver
-gcc -O2 -I include src/simple_am_receiver.c -lws2_32 -o simple_am_receiver.exe
-
-# Telemetry logger
-gcc -O2 -I include src/telem_logger.c -lws2_32 -o telem_logger.exe
+# AM receiver (network client - requires phoenix-discovery)
+gcc -O2 -I include -I ../phoenix-discovery/include src/simple_am_receiver.c -L ../phoenix-discovery/lib -lpn_discovery -lws2_32 -lwinmm -o simple_am_receiver.exe
 
 # GPS tools
 gcc -O2 -I include src/gps_time.c src/gps_serial.c -o gps_time.exe
+
+# GPS verification
+gcc -O2 -I include src/wwv_gps_verify.c src/gps_serial.c -lws2_32 -o wwv_gps_verify.exe
 ```
 
 ---
@@ -68,30 +107,6 @@ typedef struct {
 Interleaved I/Q pairs immediately after header:
 - S16: `[I0:int16][Q0:int16][I1:int16][Q1:int16]...`
 - F32: `[I0:float][Q0:float][I1:float][Q1:float]...`
-
----
-
-## Telemetry Logger
-
-Receives UDP broadcast telemetry and logs to CSV.
-
-### Usage
-```bash
-telem_logger -p 3005 -o telemetry.csv
-telem_logger -p 3005 -c TICK,SYNC -o events.csv
-```
-
-### Channel Prefixes
-| Prefix | Source |
-|--------|--------|
-| `TICK` | Tick detector |
-| `MARK` | Marker detector |
-| `SYNC` | Sync state machine |
-| `BCDS` | BCD decoder |
-| `CHAN` | Channel quality |
-| `T500` | 500 Hz tone tracker |
-| `T600` | 600 Hz tone tracker |
-| `CONS` | Console messages |
 
 ---
 
@@ -142,34 +157,10 @@ gps_serial_close(gps);
 
 ---
 
-## Python Tools
-
-### Requirements
-```
-numpy
-matplotlib
-scipy (optional)
-```
-
-### wwv_analyze.py
-```bash
-python wwv_analyze.py recording.iqr --plot
-python wwv_analyze.py recording.iqr --output analysis.csv
-```
-
-### wwv_plot.py
-```bash
-python wwv_plot.py telemetry.csv --channel TICK
-python wwv_plot.py telemetry.csv --waterfall
-```
-
----
-
 ## Dependencies
 
 | Library | Purpose |
 |---------|---------|
 | Winsock2 | Windows networking |
 | Windows serial API | COM port access |
-| Python 3.x | Python tools |
-| numpy/matplotlib | Python analysis |
+

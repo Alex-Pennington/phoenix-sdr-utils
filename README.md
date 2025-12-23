@@ -8,7 +8,40 @@
 
 ## Overview
 
-Utility programs and analysis tools for the Phoenix Nest SDR system. Includes I/Q file playback, signal analysis, GPS timing, telemetry logging, and debugging utilities.
+Core SDR utility programs for the Phoenix Nest SDR system. Includes I/Q file recording and playback, network-based AM signal analysis, and GPS timing tools.
+
+**Architecture:** Tools connect to [phoenix-sdr-net](https://github.com/Alex-Pennington/phoenix-sdr-net) sdr_server for I/Q data streaming. Frequency/gain control handled by separate controller programs.
+
+**Note:** WWV-specific analysis tools have been moved to [phoenix-wwv](https://github.com/Alex-Pennington/phoenix-wwv).
+
+### Network Architecture
+
+```
+┌────────────────┐         UDP:5400         ┌─────────────────┐
+│  Controller    │◄────────discovery────────│ simple_am_      │
+│  Program       │                          │ receiver        │
+└────────┬───────┘                          └────────┬────────┘
+         │                                           │
+         │ TCP:4535                                  │
+         │ (control)                                 │ TCP:4536
+         ↓                                           │ (I/Q data)
+    ┌────────────────┐                               │
+    │  sdr_server    │───────────────────────────────┘
+    │  (phoenix-sdr- │
+    │   net)         │
+    └────────┬───────┘
+             │ USB
+             ↓
+    ┌────────────────┐
+    │  SDRplay       │
+    │  Hardware      │
+    └────────────────┘
+```
+
+- **Controller:** Sets frequency, gain, starts/stops streaming
+- **sdr_server:** Interfaces with SDR hardware, streams I/Q data
+- **simple_am_receiver:** Processes I/Q stream → audio output
+- **Discovery:** Auto-finds sdr_server on LAN via UDP broadcast
 
 ---
 
@@ -26,23 +59,7 @@ Utility programs and analysis tools for the Phoenix Nest SDR system. Includes I/
 
 | Tool | Description |
 |------|-------------|
-| `simple_am_receiver` | Basic AM demodulator for testing |
-| `wwv_analyze` | Analyze WWV signal recordings |
-| `wwv_scan` | Scan for WWV signals across frequencies |
-| `wwv_listen` | Real-time WWV listening tool |
-| `env_dump` | Dump signal envelope for analysis |
-| `wwv_envelope_dump` | WWV-specific envelope dumping |
-| `subcarrier_detector` | 100 Hz subcarrier detection |
-
-### Debugging & Testing
-
-| Tool | Description |
-|------|-------------|
-| `wwv_debug` | WWV detection debugging |
-| `wwv_tick_detect` | Standalone tick detection testing |
-| `wwv_tick_detect2` | Tick detection v2 algorithms |
-| `wwv_sync` | Synchronization testing |
-| `wwv_gps_verify` | GPS time verification |
+| `simple_am_receiver` | Network I/Q client with AM demodulation |
 
 ### GPS & Timing
 
@@ -50,20 +67,7 @@ Utility programs and analysis tools for the Phoenix Nest SDR system. Includes I/
 |------|-------------|
 | `gps_time` | GPS time extraction utility |
 | `gps_serial` | GPS serial port interface |
-
-### Telemetry & Logging
-
-| Tool | Description |
-|------|-------------|
-| `telem_logger` | Log UDP telemetry to file |
-| `serial_dump` | Dump serial port data for debugging |
-
-### Python Tools
-
-| Tool | Description |
-|------|-------------|
-| `wwv_analyze.py` | Python WWV analysis script |
-| `wwv_plot.py` | Signal plotting and visualization |
+| `wwv_gps_verify` | Verify WWV time signals against GPS |
 
 ---
 
@@ -117,34 +121,28 @@ iqr_play -o - recording.iqr | waterfall.exe
 ### Simple AM Receiver
 
 ```bash
-# Demodulate AM at 15 MHz with 1 kHz audio offset
-simple_am_receiver -f 1000 -i -o | aplay -f S16_LE -r 48000
+# Auto-discover sdr_server and connect
+simple_am_receiver
+
+# Connect to specific server
+simple_am_receiver -s 192.168.1.100 -p 4536
+
+# Output to stdout for waterfall piping
+simple_am_receiver -o | waterfall.exe
+
+# Adjust volume
+simple_am_receiver -v 100
 ```
 
-### WWV Analysis
+**Note:** Frequency and gain are controlled via sdr_server:4535 control port by a separate controller program. simple_am_receiver only processes the I/Q data stream.
+
+### GPS Timing
 
 ```bash
-# Analyze recording for WWV signals
-wwv_analyze recording.iqr
+# Extract GPS time from serial port
+gps_time COM3
 
-# Python analysis with plotting
-python wwv_analyze.py recording.iqr --plot
-```
-
-### Telemetry Logging
-
-```bash
-# Log all telemetry to file
-telem_logger -p 3005 -o telemetry.csv
-
-# Log specific channels
-telem_logger -p 3005 -c TICK,SYNC -o sync_events.csv
-```
-
-### GPS Verification
-
-```bash
-# Compare GPS time with WWV decoded time
+# Verify WWV time signals against GPS
 wwv_gps_verify -g COM3 -w localhost:4536
 ```
 
@@ -158,21 +156,21 @@ wwv_gps_verify -g COM3 -w localhost:4536
 # I/Q playback
 gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play.exe
 
-# AM receiver
-gcc -O2 -I include src/simple_am_receiver.c -lws2_32 -o simple_am_receiver.exe
-
-# Telemetry logger
-gcc -O2 -I include src/telem_logger.c -lws2_32 -o telem_logger.exe
+# AM receiver (network client)
+gcc -O2 -I include -I path/to/phoenix-discovery/include src/simple_am_receiver.c -L path/to/phoenix-discovery/lib -lpn_discovery -lws2_32 -lwinmm -o simple_am_receiver.exe
 
 # GPS tools
 gcc -O2 -I include src/gps_time.c src/gps_serial.c -o gps_time.exe
+
+# GPS verification tool
+gcc -O2 -I include src/wwv_gps_verify.c src/gps_serial.c -lws2_32 -o wwv_gps_verify.exe
 ```
 
 ### Linux
 
 ```bash
 gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play
-gcc -O2 -I include src/telem_logger.c -o telem_logger
+gcc -O2 -I include -I ../phoenix-discovery/include src/simple_am_receiver.c -L ../phoenix-discovery/lib -lpn_discovery -lpthread -o simple_am_receiver
 ```
 
 ---
@@ -180,8 +178,8 @@ gcc -O2 -I include src/telem_logger.c -o telem_logger
 ## Dependencies
 
 - Standard C library
-- Windows: ws2_32 (Winsock)
-- Python tools: numpy, matplotlib
+- Windows: ws2_32 (Winsock), winmm (audio output)
+- [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery library
 
 ---
 
@@ -191,9 +189,10 @@ gcc -O2 -I include src/telem_logger.c -o telem_logger
 |------------|-------------|
 | [mars-suite](https://github.com/Alex-Pennington/mars-suite) | Phoenix Nest MARS Suite index |
 | [phoenix-sdr-core](https://github.com/Alex-Pennington/phoenix-sdr-core) | SDR hardware interface |
+| [phoenix-sdr-net](https://github.com/Alex-Pennington/phoenix-sdr-net) | I/Q streaming server |
+| [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) | Service discovery |
 | [phoenix-waterfall](https://github.com/Alex-Pennington/phoenix-waterfall) | Waterfall display |
 | [phoenix-wwv](https://github.com/Alex-Pennington/phoenix-wwv) | WWV detection library |
-| [phoenix-sdr-net](https://github.com/Alex-Pennington/phoenix-sdr-net) | Network streaming |
 
 ---
 
