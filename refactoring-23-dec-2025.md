@@ -123,6 +123,79 @@ simple_am_receiver (DSP + audio)
 
 ---
 
+## Phase 4: DSP Library Extraction ✅
+
+**Completed: December 23, 2025**
+
+### Phoenix-DSP Repository Created
+
+**Directory structure:**
+```
+phoenix-dsp/
+├── include/
+│   ├── pn_dsp.h           (master header)
+│   ├── pn_filter.h        (lowpass, dc_block)
+│   └── pn_agc.h           (audio AGC)
+├── src/
+│   ├── pn_filter.c        (filter implementations)
+│   └── pn_agc.c           (AGC implementation)
+├── lib/
+│   ├── pn_filter.o
+│   ├── pn_agc.o
+│   └── libpn_dsp.a        (3,042 bytes)
+└── README.md
+```
+
+### Algorithms Extracted
+
+1. **pn_lowpass_t** - 2nd-order Butterworth lowpass
+   - Extracted from simple_am_receiver.c lines 113-143
+   - Configurable cutoff frequency and sample rate
+   - Q = 0.7071 for maximally flat passband
+
+2. **pn_dc_block_t** - Highpass IIR DC blocker
+   - Extracted from simple_am_receiver.c lines 145-167
+   - Configurable alpha coefficient (0.99 for voice)
+   - Used for envelope demodulation
+
+3. **pn_audio_agc_t** - Automatic Gain Control
+   - Extracted from simple_am_receiver.c lines 169-220
+   - Asymmetric attack/decay (0.01/0.0001)
+   - Gain range: 0.1x to 100x
+
+### Simple AM Receiver Updates
+
+**Removed:**
+- 96 lines of inline DSP code
+- Duplicate algorithm implementations
+
+**Added:**
+- `#include "pn_dsp.h"`
+- Updated types: `pn_lowpass_t`, `pn_dc_block_t`, `pn_audio_agc_t`
+- Updated function calls: `pn_lowpass_init()`, `pn_dc_block_process()`, etc.
+
+**Build command:**
+```powershell
+gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \
+    src/simple_am_receiver.c \
+    -L ../phoenix-dsp/lib -L ../phoenix-discovery/build \
+    -lpn_dsp -lpn_discovery -liphlpapi -lws2_32 -lwinmm -lm \
+    -o simple_am_receiver.exe
+```
+
+### Library Compilation
+
+```powershell
+cd ../phoenix-dsp
+gcc -c -O2 -I include src/pn_filter.c -o lib/pn_filter.o
+gcc -c -O2 -I include src/pn_agc.c -o lib/pn_agc.o
+ar rcs lib/libpn_dsp.a lib/pn_filter.o lib/pn_agc.o
+```
+
+**Result:** libpn_dsp.a successfully created and linked
+
+---
+
 ## Progress Log
 
 ### 2025-12-23 - Initial Planning
@@ -137,6 +210,7 @@ simple_am_receiver (DSP + audio)
 - Preserved DSP pipeline (lowpass, envelope, DC block, AGC)
 - Updated CLI to network client model
 - Removed all hardware control code
+- Commit: `deb02f0`
 
 ### 2025-12-23 - Phase 2 Completed ✅
 - Updated README.md with network architecture diagram
@@ -151,17 +225,59 @@ simple_am_receiver (DSP + audio)
 - Documented lowpass_t, dc_block_t, audio_agc_t algorithms
 - Defined phoenix-dsp migration strategy
 
+### 2025-12-23 - Phase 4 Completed ✅
+- Created phoenix-dsp repository with full structure
+- Extracted all DSP algorithms to separate library
+- Built libpn_dsp.a (3,042 bytes)
+- Updated simple_am_receiver to use phoenix-dsp
+- Verified compilation and linking successful
+- Updated all documentation (README.md, copilot-instructions.md)
+- Marked DSP_EXTRACTION_PLAN.md as complete
+- Commit: `17e59b4`
+
 ---
 
-## Summary
+## Final Summary
 
-**All phases complete.** simple_am_receiver is now a pure network client that:
-- Auto-discovers sdr_server via UDP broadcast (phoenix-discovery)
-- Receives I/Q data over TCP socket (PHXI/IQDQ protocol)
-- Preserves DSP pipeline for future extraction to phoenix-dsp
-- No longer requires SDR hardware access
+**All 4 phases complete.** Phoenix-sdr-utils is now fully modular:
 
-**Next steps** (future work):
-- Create phoenix-dsp repository
-- Extract DSP algorithms (lowpass, dc_block, audio_agc)
-- Update simple_am_receiver to link libpn_dsp
+### Architecture Achieved
+```
+Controller → sdr_server:4535 (control)
+                ↓
+         SDRplay RSP2 Pro
+                ↓
+         sdr_server:4536 (I/Q data)
+                ↓
+         simple_am_receiver
+         ├── phoenix-discovery (service discovery)
+         ├── phoenix-dsp (DSP algorithms)
+         └── waveOut (audio output)
+```
+
+### Key Results
+
+1. **Network Client:** simple_am_receiver is now hardware-independent
+2. **Service Discovery:** Auto-finds sdr_server via UDP broadcast
+3. **DSP Library:** Reusable algorithms for all Phoenix Nest tools
+4. **Modular Build:** Clean separation of concerns
+
+### Code Metrics
+
+- **Lines removed:** 7,900+ (cleanup + refactor)
+- **Lines added:** 1,219 (network client + documentation)
+- **DSP library:** 3,042 bytes compiled
+- **Net change:** -6,681 lines (leaner codebase)
+
+### Commits
+
+- `deb02f0` - Network client refactor
+- `17e59b4` - DSP extraction to phoenix-dsp
+
+### Dependencies
+
+Phoenix-sdr-utils now requires:
+- **phoenix-discovery** - Service discovery (UDP broadcast)
+- **phoenix-dsp** - DSP algorithms (filters, AGC)
+- **Windows:** ws2_32, winmm, iphlpapi
+- **POSIX:** pthread, math library
