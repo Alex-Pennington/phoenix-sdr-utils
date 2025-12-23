@@ -1,0 +1,18 @@
+{
+    "githubRepo":  "Alex-Pennington/phoenix-sdr-utils",
+    "projectName":  "phoenix-sdr-utils",
+    "packageFiles":  [
+                         "README.md",
+                         "LICENSE",
+                         "docs/"
+                     ],
+    "dlls":  [
+
+             ],
+    "executables":  [
+                        "iqr_play.exe",
+                        "simple_am_receiver.exe",
+                        "gps_time.exe",
+                        "wwv_gps_verify.exe"
+                    ]
+}

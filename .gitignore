@@ -50,3 +50,8 @@ venv/
 # Generated plots
 *.png
 *.pdf
+
+# Phoenix Build System
+build/
+install/
+*.zip

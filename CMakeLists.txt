@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(phoenix-sdr-utils VERSION 0.1.0 LANGUAGES C)
 
+# Phoenix Build System integration
+include(external/phoenix-build-scripts/cmake/phoenix-build.cmake)
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 

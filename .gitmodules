@@ -1,0 +1,3 @@
+[submodule "external/phoenix-build-scripts"]
+	path = external/phoenix-build-scripts
+	url = https://github.com/Alex-Pennington/phoenix-build-scripts

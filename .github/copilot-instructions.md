@@ -67,34 +67,36 @@ Controller → sdr_server:4535 (control: SET_FREQ, SET_GAIN, START, STOP)
 
 ## Build
 
-Phoenix SDR Utils uses CMake for cross-platform builds.
+Phoenix SDR Utils uses CMake with [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) for standardized build infrastructure.
 
 ### Quick Build
 
 ```powershell
-# Windows
-.\build.ps1
+# Configure
+cmake --preset msys2-ucrt64
 
-# Linux/macOS
-./build.sh
+# Build
+cmake --build --preset msys2-ucrt64
 ```
 
-### CMake Manual Build
+### Deployment
 
 ```powershell
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Release
+# Dry run
+.\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch
+
+# Deploy to GitHub
+.\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch -Deploy
 ```
 
-### Build Options
+### Version Management
 
-- `-Clean` - Remove build directory
-- `-Rebuild` - Clean and rebuild
-- `-BuildType Debug` - Debug build with symbols
+- **Format:** MAJOR.MINOR.PATCH+BUILD.COMMIT[-dirty]
+- **Version** in `project(VERSION x.y.z)` in CMakeLists.txt
+- **Build number** in `.phoenix-build-number`
+- **Generated header:** `build/msys2-ucrt64/include/version.h`
 
-### Legacy Manual Build
+### Legacy Manual Build (for reference)
 
 ```powershell
 # I/Q playback

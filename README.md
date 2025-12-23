@@ -153,55 +153,57 @@ wwv_gps_verify -g COM3 -w localhost:4536
 ### Prerequisites
 
 - CMake 3.15 or later
-- C99 compiler (GCC, Clang, or MSVC)
+- C99 compiler (GCC recommended)
+- MSYS2 UCRT64 environment (Windows)
 - [phoenix-dsp](../phoenix-dsp) - DSP algorithms library
 - [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery
 
 ### Quick Build
 
-**Windows (PowerShell):**
-```powershell
-.\build.ps1
-```
-
-**Linux/macOS:**
-```bash
-./build.sh
-```
-
-**Executables will be in:** `build/`
-
-### CMake Build (Manual)
-
-```bash
-mkdir build
-cd build
-cmake ..
-cmake --build . --config Release
-```
-
-### Build Options
+**Using CMake presets (recommended):**
 
 ```powershell
-# Clean build
-.\build.ps1 -Clean
+# Configure
+cmake --preset msys2-ucrt64
 
-# Rebuild from scratch
-.\build.ps1 -Rebuild
-
-# Debug build
-.\build.ps1 -BuildType Debug
+# Build
+cmake --build --preset msys2-ucrt64
 ```
+
+**Executables will be in:** `build/msys2-ucrt64/`
+
+### Build System
+
+This project uses [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) for standardized CMake configuration and version management.
+
+- **Version format:** MAJOR.MINOR.PATCH+BUILD.COMMIT[-dirty]
+- **Example:** `0.1.0+5.abc1234`
+- **Build number** tracked in `.phoenix-build-number`
+- **Version header** auto-generated in `build/msys2-ucrt64/include/version.h`
+
+### Deploying Releases
+
+```powershell
+# Dry run (test build and packaging)
+.\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch
+
+# Deploy to GitHub (commits version bump, tags, uploads release)
+.\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch -Deploy
+```
+
+See [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) for deployment workflow details.
 
 ---
 
 ## Dependencies
 
-### Build Dependencies
+### Build System
+- [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) - Standardized build infrastructure (submodule)
 - CMake 3.15+
-- C99 compiler
+- C99 compiler (GCC)
+- MSYS2 UCRT64 (Windows)
 
-### Runtime Dependencies
+### Libraries
 - [phoenix-dsp](../phoenix-dsp) - DSP algorithms library
 - [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery library
 - Windows: ws2_32, winmm, iphlpapi
@@ -217,6 +219,7 @@ cmake --build . --config Release
 | [phoenix-sdr-core](https://github.com/Alex-Pennington/phoenix-sdr-core) | SDR hardware interface |
 | [phoenix-sdr-net](https://github.com/Alex-Pennington/phoenix-sdr-net) | I/Q streaming server |
 | [phoenix-dsp](../phoenix-dsp) | DSP algorithms library |
+| [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) | Build system infrastructure |
 | [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) | Service discovery |
 | [phoenix-waterfall](https://github.com/Alex-Pennington/phoenix-waterfall) | Waterfall display |
 | [phoenix-wwv](https://github.com/Alex-Pennington/phoenix-wwv) | WWV detection library |
