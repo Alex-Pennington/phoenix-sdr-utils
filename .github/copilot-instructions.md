@@ -67,9 +67,38 @@ Controller → sdr_server:4535 (control: SET_FREQ, SET_GAIN, START, STOP)
 
 ## Build
 
+Phoenix SDR Utils uses CMake for cross-platform builds.
+
+### Quick Build
+
+```powershell
+# Windows
+.\build.ps1
+
+# Linux/macOS
+./build.sh
+```
+
+### CMake Manual Build
+
+```powershell
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
+### Build Options
+
+- `-Clean` - Remove build directory
+- `-Rebuild` - Clean and rebuild
+- `-BuildType Debug` - Debug build with symbols
+
+### Legacy Manual Build
+
 ```powershell
 # I/Q playback
-gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play.exe
+gcc -O2 -I include src/iqr_play.c src/iqr_meta.c src/iq_recorder.c -o iqr_play.exe
 
 # AM receiver (network client - requires phoenix-dsp and phoenix-discovery)
 gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \

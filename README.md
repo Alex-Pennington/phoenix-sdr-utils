@@ -150,45 +150,62 @@ wwv_gps_verify -g COM3 -w localhost:4536
 
 ## Building
 
-### Windows
+### Prerequisites
 
+- CMake 3.15 or later
+- C99 compiler (GCC, Clang, or MSVC)
+- [phoenix-dsp](../phoenix-dsp) - DSP algorithms library
+- [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery
+
+### Quick Build
+
+**Windows (PowerShell):**
 ```powershell
-# I/Q playback
-gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play.exe
-
-# AM receiver (network client - requires phoenix-dsp and phoenix-discovery)
-gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \
-    src/simple_am_receiver.c \
-    -L ../phoenix-dsp/lib -L ../phoenix-discovery/build \
-    -lpn_dsp -lpn_discovery -liphlpapi -lws2_32 -lwinmm -lm \
-    -o simple_am_receiver.exe
-
-# GPS tools
-gcc -O2 -I include src/gps_time.c src/gps_serial.c -o gps_time.exe
-
-# GPS verification tool
-gcc -O2 -I include src/wwv_gps_verify.c src/gps_serial.c -lws2_32 -o wwv_gps_verify.exe
+.\build.ps1
 ```
 
-### Linux
+**Linux/macOS:**
+```bash
+./build.sh
+```
+
+**Executables will be in:** `build/`
+
+### CMake Build (Manual)
 
 ```bash
-gcc -O2 -I include src/iqr_play.c src/iqr_meta.c -o iqr_play
-gcc -O2 -I include -I ../phoenix-dsp/include -I ../phoenix-discovery/include \
-    src/simple_am_receiver.c \
-    -L ../phoenix-dsp/lib -L ../phoenix-discovery/build \
-    -lpn_dsp -lpn_discovery -lpthread -lm \
-    -o simple_am_receiver
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
+### Build Options
+
+```powershell
+# Clean build
+.\build.ps1 -Clean
+
+# Rebuild from scratch
+.\build.ps1 -Rebuild
+
+# Debug build
+.\build.ps1 -BuildType Debug
 ```
 
 ---
 
 ## Dependencies
 
-- Standard C library
-- Windows: ws2_32 (Winsock), winmm (audio output), iphlpapi (network adapters)
+### Build Dependencies
+- CMake 3.15+
+- C99 compiler
+
+### Runtime Dependencies
 - [phoenix-dsp](../phoenix-dsp) - DSP algorithms library
 - [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery library
+- Windows: ws2_32, winmm, iphlpapi
+- POSIX: pthread, math library
 
 ---
 
