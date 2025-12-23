@@ -158,19 +158,14 @@ wwv_gps_verify -g COM3 -w localhost:4536
 - [phoenix-dsp](../phoenix-dsp) - DSP algorithms library
 - [phoenix-discovery](https://github.com/Alex-Pennington/phoenix-discovery) - Service discovery
 
-### Quick Build
-
-**Using CMake presets (recommended):**
+### Development Builds
 
 ```powershell
-# Configure
-cmake --preset msys2-ucrt64
-
-# Build
-cmake --build --preset msys2-ucrt64
+# Build without incrementing version
+.\external\phoenix-build-scripts\scripts\deploy-release.ps1
 ```
 
-**Executables will be in:** `build/msys2-ucrt64/`
+This runs the full build pipeline (clean, configure, build) automatically. **Executables will be in:** `build/msys2-ucrt64/`
 
 ### Build System
 
@@ -181,17 +176,17 @@ This project uses [phoenix-build-scripts](https://github.com/Alex-Pennington/pho
 - **Build number** tracked in `.phoenix-build-number`
 - **Version header** auto-generated in `build/msys2-ucrt64/include/version.h`
 
-### Deploying Releases
+### Release Builds
 
 ```powershell
-# Dry run (test build and packaging)
+# Build + package (bumps version, creates ZIP)
 .\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch
 
-# Deploy to GitHub (commits version bump, tags, uploads release)
+# Build + package + deploy to GitHub
 .\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch -Deploy
 ```
 
-See [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) for deployment workflow details.
+Script handles: version bump → clean → build → package → commit → tag → GitHub upload.
 
 ---
 

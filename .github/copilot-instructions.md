@@ -67,25 +67,22 @@ Controller → sdr_server:4535 (control: SET_FREQ, SET_GAIN, START, STOP)
 
 ## Build
 
-Phoenix SDR Utils uses CMake with [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) for standardized build infrastructure.
+Phoenix SDR Utils uses [phoenix-build-scripts](https://github.com/Alex-Pennington/phoenix-build-scripts) for all builds.
 
-### Quick Build
+### Development Build
 
 ```powershell
-# Configure
-cmake --preset msys2-ucrt64
-
-# Build
-cmake --build --preset msys2-ucrt64
+# Build only (no version changes)
+.\external\phoenix-build-scripts\scripts\deploy-release.ps1
 ```
 
-### Deployment
+### Release Deployment
 
 ```powershell
-# Dry run
+# Version bump + build + package
 .\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch
 
-# Deploy to GitHub
+# Full deployment to GitHub
 .\external\phoenix-build-scripts\scripts\deploy-release.ps1 -IncrementPatch -Deploy
 ```
 
